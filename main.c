@@ -13,6 +13,7 @@
 #include <gsl/gsl_math.h>
 #include <gsl/gsl_roots.h>
 #include <gsl/gsl_rng.h>
+#include <gsl/gsl_randist.h>
 #include "math.h"
 #include <stdlib.h>
 #include <time.h>
@@ -32,12 +33,12 @@ struct f_params {
 
 double find_y(double u, double (*df)( double),double (*f)( double,void *),double Thetae){
 // Get maximum for window
-  int status, steps = 0, max_steps = 100;
+  int status, steps = 0, max_steps = 10;
   const gsl_root_fsolver_type *T;
   gsl_root_fsolver *s;
   double solution;
-  double low = 1e-5;//sqrt(0.001/Thetae);
-  double high =1e5; //sqrt(1e4/Thetae);
+  double low = 1e-2;//sqrt(0.001/Thetae);
+  double high = 1e3;//sqrt(1e5/Thetae);
 //  fprintf(stderr,"%e %e\n",f(low,u),f(high,u));
   gsl_function F;
   struct f_params params = {u};
@@ -53,7 +54,7 @@ double find_y(double u, double (*df)( double),double (*f)( double,void *),double
     solution = gsl_root_fsolver_root(s);
     low = gsl_root_fsolver_x_lower(s);
     high = gsl_root_fsolver_x_upper(s);
-    status = gsl_root_test_interval(low, high, 1e-10, 0);
+    status = gsl_root_test_interval(low, high, 0, 1e-4);
   } while (status=GSL_CONTINUE && steps < max_steps);
   //fprintf(stderr,"steps %d solution %e\n",steps,solution);
 return solution;
@@ -79,12 +80,13 @@ double dF4(double y){
     
     return value;
 }
+
 double dF5(double y){
     double value,denom,num;
     double y2 = y*y;
 
-    num=8*y2*y2*pow((kappa+y2)/(kappa),-kappa-1)*gsl_sf_gamma(kappa);
-    denom=3*sqrt(M_PI)*pow(kappa,3./2.)*gsl_sf_gamma(kappa-3./2.);
+    num=8*y2*y2*pow((kappa+y2)/(kappa),-kappa-1) *  gsl_sf_gamma(kappa);
+    denom=3*sqrt(M_PI)*pow(kappa,3./2.)*  gsl_sf_gamma(kappa-3./2.);
     value=num/denom;
     
     return value;
@@ -176,7 +178,7 @@ double F5(double y,void *params){
 
     num=pow((y2+kappa)/kappa,-kappa)*gsl_sf_gamma(kappa+1)*(3*kappa*kappa *(hyp2F1-1)+(1.-4.*kappa*kappa)*y2*y2-3.*kappa*(2.*kappa+1.)*y2);
     denom=3.*pow(kappa,3./2.)*y*sqrt(M_PI)*gsl_sf_gamma(3./2.+kappa);
-    value=num/denom-u;
+    value= num/denom-u;
     
     return value;
 }
@@ -241,7 +243,7 @@ double sample_kappa_distr(double Thetae)
 }
 
 
-double sample_thermal_distr(double Thetae) {
+double sample_th_distr(double Thetae) {
 
   double S_3, pi_3, pi_4, pi_5, pi_6, y, x1, x2, x, prob;
   double num, den;
@@ -299,7 +301,7 @@ return (p-1)*pow(gamma,-p)/(4*M_PI*(pow(gmin,1-p)-pow(gmax,1-p)));
 }
 
 double th_fit(double gamma, double Thetae){
-
+	return gamma*gamma * sqrt(1-1/(gamma*gamma)) * exp(-gamma/Thetae);
 
 }
 
@@ -396,7 +398,7 @@ int main(int argc, const char * argv[]) {
 #if KAPPA
 	    norm += kappa_fit(gamma_e,Thetae) *(gamma_e-1.)*dg;
 #elif PWL
-        norm += pwl_fit(gamma_e,gmin,gmax) *(gamma_e-1)*dg;
+            norm += pwl_fit(gamma_e,gmin,gmax) *(gamma_e-1)*dg;
 #elif TH
 	    norm += th_fit(gamma_e,Thetae) *(gamma_e-1.)*dg;
 #endif
@@ -408,7 +410,7 @@ int main(int argc, const char * argv[]) {
 #if KAPPA
 	    analytical_distr[i]=kappa_fit(gamma_e,Thetae)/norm;
 #elif PWL
-        analytical_distr[i]=pwl_fit(gamma_e,gmin,gmax)/norm;
+            analytical_distr[i]=pwl_fit(gamma_e,gmin,gmax)/norm;
 #elif TH
 	    analytical_distr[i]=th_fit(gamma_e,Thetae)/norm;
 #endif
